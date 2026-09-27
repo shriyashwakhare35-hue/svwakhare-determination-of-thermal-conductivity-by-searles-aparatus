@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enhanced Searle's Apparatus Virtual Lab</title>
+  
+  <!-- Tailwind CSS for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- MathJax for rendering beautiful math formulas -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    body { background-color: #f8fafc; color: #0f172a; }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Canvas styling */
+    .canvas-container {
+      background: #0f172a;
+      border-radius: 0.75rem;
+      position: relative;
+      cursor: crosshair;
+      overflow: hidden;
+      box-shadow: inset 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    /* Beaker Animation CSS */
+    .beaker-container { display: flex; align-items: flex-end; justify-content: center; height: 120px; }
+    .beaker { 
+      width: 70px; height: 100px; 
+      border: 3px solid #94a3b8; border-top: none; 
+      border-radius: 0 0 10px 10px; 
+      position: relative; overflow: hidden; background: rgba(255,255,255,0.9); 
+      box-shadow: inset 0 -5px 15px rgba(14, 165, 233, 0.2);
+    }
+    .water-fill { 
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; 
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.7) 0%, rgba(2, 132, 199, 0.8) 100%);
+      transition: height 0.5s linear; 
+    }
+    .water-surface {
+      position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+      background: rgba(255,255,255,0.4);
+    }
+
+    /* Tooltip Pulse Animation */
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+    }
+    .pulse-hint { animation: pulse-soft 2s infinite; }
+  </style>
+</head>
+<body class="p-4 md:p-6 lg:p-8">
+
+<div class="max-w-7xl mx-auto">
+  
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-blue-900 to-indigo-800 text-white p-6 rounded-xl shadow-lg mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-bold mb-2">Searle's Apparatus Virtual Lab</h1>
+      <p class="text-blue-200">Determine the Coefficient of Thermal Conductivity (K) of a good conductor.</p>
+    </div>
+    <div class="mt-4 md:mt-0 bg-white/20 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/30">
+      <span class="font-mono text-sm tracking-wider uppercase">Interactive Simulation</span>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- Left Column: Canvas, Graph, Visuals -->
+    <div class="lg:col-span-7 flex flex-col gap-6">
+      
+      <!-- Interactive Canvas Area -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            Experimental Setup
+          </h2>
+          <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-semibold pulse-hint">🖱️ Drag Thermometer θ₂</span>
+        </div>
+        
+        <div class="canvas-container h-[350px] w-full" id="canvasWrapper">
+          <canvas id="appCanvas" class="w-full h-full"></canvas>
+        </div>
+
+        <!-- Temperature Readouts -->
+        <div class="grid grid-cols-4 gap-3 mt-4">
+          <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">θ₁ (Hot End)</div>
+            <div class="text-xl font-black text-red-500 mt-1" id="dispT1">-- °C</div>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg border-2 border-blue-400 text-center shadow-sm relative overflow-hidden">
+            <div class="absolute inset-0 bg-blue-400/10 opacity-50 pulse-hint"></div>
+            <div class="text-xs font-bold text-blue-700 uppercase relative z-10">θ₂ (Draggable)</div>
+            <div class="text-xl font-black text-blue-600 mt-1 relative z-10" id="dispT2">-- °C</div>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">θ₃ (Water In)</div>
+            <div class="text-xl font-black text-teal-500 mt-1" id="dispT3">25.0 °C</div>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm">
+            <div class="text-xs font-bold text-slate-500 uppercase">θ₄ (Water Out)</div>
+            <div class="text-xl font-black text-emerald-500 mt-1" id="dispT4">-- °C</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Graph Area -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
+        <h2 class="text-lg font-bold text-slate-800 mb-2">Temperature Gradient Plot</h2>
+        <p class="text-xs text-slate-500 mb-4">Observe how the temperature drops along the distance of the rod.</p>
+        <div class="w-full h-[200px]">
+          <canvas id="chartCanvas" class="w-full h-full"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Formulas, Controls, Calculations -->
+    <div class="lg:col-span-5 flex flex-col gap-6">
+      
+      <!-- Theory & Formulas Box (MathJax) -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+        <div class="bg-slate-800 text-white p-3 px-5 font-semibold flex justify-between items-center">
+          <span>Equations & Principles</span>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+        </div>
+        <div class="p-5 space-y-4 text-sm text-slate-700 bg-slate-50">
+          <div>
+            <p class="font-semibold text-slate-800">1. Thermal Conductivity Formula:</p>
+            <div class="overflow-x-auto py-2">
+              $$ K = \frac{m \cdot s \cdot (\theta_4 - \theta_3) \cdot d}{A \cdot (\theta_1 - \theta_2) \cdot t} $$
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4 border-t border-slate-200 pt-3">
+            <div>
+              <p class="font-semibold text-slate-800">2. Cross-sectional Area:</p>
+              <div class="py-1">$$ A = \frac{\pi \cdot D^2}{4} $$</div>
+            </div>
+            <div>
+              <p class="font-semibold text-slate-800">3. Vernier Reading:</p>
+              <div class="py-1">$$ TR = MSR + (VSR \times LC) $$</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls & Water Collection -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
+        <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Simulation Controls</h2>
+        
+        <div class="space-y-5">
+          <!-- Material Select -->
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Rod Material</label>
+            <select id="materialSelect" onchange="updatePhysics()" class="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5">
+              <option value="copper">Copper (High Conductivity: K ≈ 0.092)</option>
+              <option value="aluminum">Aluminum (Medium Conductivity: K ≈ 0.049)</option>
+              <option value="brass">Brass (Low Conductivity: K ≈ 0.026)</option>
+            </select>
+          </div>
+
+          <!-- Flow Rate Slider -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-sm font-semibold text-slate-700">Cooling Water Flow Rate</label>
+              <span id="flowVal" class="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">Valve: 50%</span>
+            </div>
+            <input type="range" id="flowRate" min="1" max="5" value="2.5" step="0.5" oninput="updatePhysics()" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+          </div>
+
+          <!-- Live Distance -->
+          <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex justify-between items-center">
+            <span class="text-sm font-semibold text-indigo-900">Thermometer Distance (d):</span>
+            <span id="distVal" class="text-xl font-bold text-indigo-600">10.0 cm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Observations: Vernier Caliper -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
+        <h2 class="text-lg font-bold text-slate-800 mb-3 border-b pb-2">Rod Geometry Observations</h2>
+        <p class="text-xs text-slate-500 mb-3">Calculate Area (A). <i>LC of Vernier = 0.01 cm</i></p>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-center">
+            <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+              <tr>
+                <th class="px-2 py-2 border">MSR (cm)</th>
+                <th class="px-2 py-2 border">VSR (div)</th>
+                <th class="px-2 py-2 border">Total (cm)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="border p-1"><input type="number" id="msr1" value="2.5" step="0.1" onchange="calcGeometry()" class="w-full text-center bg-slate-50 border rounded p-1"></td>
+                <td class="border p-1"><input type="number" id="csd1" value="4" onchange="calcGeometry()" class="w-full text-center bg-slate-50 border rounded p-1"></td>
+                <td class="border p-1 font-bold text-slate-700" id="tr1">2.54</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-3 flex justify-between bg-slate-800 text-white p-2 rounded text-sm px-4">
+          <span>Avg Diameter D: <strong id="avgD" class="text-blue-300">2.54</strong> cm</span>
+          <span>Area A: <strong id="areaAm" class="text-emerald-300">0.000507</strong> m²</span>
+        </div>
+      </div>
+
+    </div>
+    
+    <!-- Bottom Row: Water Collection & Validation -->
+    <div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- Water Collection Simulator -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5 flex flex-col justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 mb-1">Water Collection Simulator</h2>
+          <p class="text-xs text-slate-500 mb-4">Simulate 5 minutes (300 sec) of steady-state water collection.</p>
+        </div>
+        
+        <div class="flex items-end justify-around bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
+          <div class="beaker-container">
+            <div class="beaker">
+              <div class="water-fill" id="beakerFill">
+                <div class="water-surface"></div>
+              </div>
+            </div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-mono font-bold text-slate-800 tracking-wider" id="timerDisplay">00:00</div>
+            <div class="text-xs text-slate-500 font-bold uppercase mt-1">Timer (t = 300s)</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600" id="waterMass">--</div>
+            <div class="text-xs text-slate-500 font-bold uppercase mt-1">Mass (m) in kg</div>
+          </div>
+        </div>
+
+        <button id="startBtn" onclick="startCollection()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex justify-center items-center gap-2 shadow-md">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          Start Water Collection
+        </button>
+      </div>
+
+      <!-- Student Calculation validation -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 p-5">
+        <h2 class="text-lg font-bold text-slate-800 mb-2">Result Verification</h2>
+        <p class="text-sm text-slate-600 mb-4">Using the formulas above, plug in the values from your virtual experiment to calculate <b>K</b>.</p>
+        
+        <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg mb-5 text-sm text-amber-800">
+          <strong>Remember:</strong> Ensure distance <i>d</i> is in meters (divide cm by 100) and time <i>t</i> is 300s. Specific heat <i>s</i> = 1 kcal/kg°C.
+        </div>
+
+        <label class="block text-sm font-bold text-slate-700 mb-2">Enter your calculated K value:</label>
+        <div class="flex gap-3">
+          <input type="number" id="studentK" placeholder="e.g. 0.092" step="0.001" class="flex-1 bg-slate-50 border border-slate-300 text-slate-900 text-lg rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2.5">
+          <button onclick="checkCalculation()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors">
+            Verify
+          </button>
+        </div>
+        
+        <div id="resultFeedback" class="mt-4 p-4 rounded-lg hidden text-sm font-semibold"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // DOM Elements
+  const canvas = document.getElementById('appCanvas');
+  const ctx = canvas.getContext('2d');
+  const chartCanvas = document.getElementById('chartCanvas');
+  const chartCtx = chartCanvas.getContext('2d');
+
+  // Handle High DPI displays for crisp canvas
+  function setupCanvas(c, context) {
+    const rect = c.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    context.scale(dpr, dpr);
+    return rect;
+  }
+
+  function resizeAll() {
+    setupCanvas(canvas, ctx);
+    setupCanvas(chartCanvas, chartCtx);
+    drawChart(); // Redraw static chart on resize
+  }
+  
+  window.addEventListener('resize', resizeAll);
+
+  // Physics Data Map
+  const materialK = { copper: 0.092, aluminum: 0.049, brass: 0.026 };
+  let currentA_m2 = 0.000507;
+  let correctK = 0.092;
+  
+  // App State Variables
+  let d_cm = 10.0;
+  let isDragging = false;
+  let t1_x_percent = 0.20; 
+  let t2_x_percent = 0.45; // Dynamic, controlled by mouse
+  let flowRateSetting = 2.5;
+
+  // Real-time Temperatures
+  let T1 = 92.0, T2 = 60.0, T3 = 25.0, T4 = 28.0;
+
+  // Particles for visual animation
+  let steamParticles = [];
+  let waterParticles = [];
+  let flameParticles = [];
+  for(let i=0; i<20; i++) steamParticles.push({ x: Math.random(), y: Math.random(), speed: 0.005 + Math.random()*0.015 });
+  for(let i=0; i<10; i++) waterParticles.push({ progress: Math.random() });
+  for(let i=0; i<15; i++) flameParticles.push({ x: Math.random(), y: Math.random(), life: Math.random() });
+
+  // Geometry Updates
+  function calcGeometry() {
+    let msr = parseFloat(document.getElementById('msr1').value) || 0;
+    let csd = parseFloat(document.getElementById('csd1').value) || 0;
+    
+    let csr = csd * 0.01;
+    let tr = msr + csr;
+    
+    document.getElementById('tr1').textContent = tr.toFixed(2);
+    
+    let rad = tr / 2;
+    let areaCm2 = Math.PI * Math.pow(rad, 2);
+    currentA_m2 = areaCm2 / 10000;
+
+    document.getElementById('avgD').textContent = tr.toFixed(2);
+    document.getElementById('areaAm').textContent = currentA_m2.toFixed(6);
+    
+    updatePhysics();
+  }
+
+  // Core Physics Engine Updates
+  function updatePhysics() {
+    const matKey = document.getElementById('materialSelect').value;
+    const k_val = materialK[matKey];
+    flowRateSetting = parseFloat(document.getElementById('flowRate').value);
+
+    document.getElementById('distVal').textContent = `${d_cm.toFixed(1)} cm`;
+    document.getElementById('flowVal').textContent = `Valve: ${flowRateSetting * 20}%`;
+
+    const d_m = d_cm / 100;
+    const t_sec = 300; 
+    const s_val = 1.0; 
+    const m_kg = 0.06 * flowRateSetting; // Mass collected depends on flow rate
+
+    // Simulated Heat Transfer calculations
+    T1 = 92.0; // Assume steam end is constant near boiling point
+    
+    // Thermal resistance concept: R_th = L / (k*A)
+    const thermalResistance = d_m / (k_val * currentA_m2);
+    
+    // Heat flow eq: Q/t = (T1 - T_env) / R_total
+    const heatFlowRate = (T1 - 25.0) / (thermalResistance + (1 / (m_kg * s_val / t_sec)));
+    
+    T2 = T1 - (heatFlowRate * thermalResistance);
+    if(T2 < 35) T2 = 35; // Floor limit for visuals
+    
+    T3 = 25.0; // Water inlet temp
+    T4 = T3 + (heatFlowRate / (m_kg * s_val / t_sec));
+
+    // Calculate exact K based on the simulated parameters to verify against user input
+    correctK = (m_kg * s_val * (T4 - T3) * d_m) / (currentA_m2 * (T1 - T2) * t_sec);
+
+    // Update UI
+    document.getElementById('dispT1').textContent = `${T1.toFixed(1)} °C`;
+    document.getElementById('dispT2').textContent = `${T2.toFixed(1)} °C`;
+    document.getElementById('dispT4').textContent = `${T4.toFixed(1)} °C`;
+
+    drawChart();
+  }
+
+  // --- Canvas Interaction (Mouse/Touch) ---
+  function getEventPos(canvas, evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  }
+
+  function handleStart(e) {
+    const pos = getEventPos(canvas, e);
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = rect.width;
+    const rodX = w * 0.25;
+    const rodW = w * 0.50;
+    const t2_pixel_x = rodX + rodW * t2_x_percent;
+    
+    // Hitbox for Thermometer 2
+    if (Math.abs(pos.x - t2_pixel_x) < 30 && pos.y > 20 && pos.y < rect.height * 0.6) {
+      isDragging = true;
+      canvas.style.cursor = 'grabbing';
+      if(e.cancelable) e.preventDefault();
+    }
+  }
+
+  function handleMove(e) {
+    if (!isDragging) return;
+    const pos = getEventPos(canvas, e);
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = rect.width;
+    const rodX = w * 0.25;
+    const rodW = w * 0.50;
+    
+    let newPercent = (pos.x - rodX) / rodW;
+    
+    // Limits
+    if (newPercent < t1_x_percent + 0.1) newPercent = t1_x_percent + 0.1;
+    if (newPercent > 0.8) newPercent = 0.8;
+    
+    t2_x_percent = newPercent;
+    
+    // Map visual distance to physical cm (assume full rod is 60cm between endpoints)
+    d_cm = (newPercent - t1_x_percent) * 60; 
+    updatePhysics();
+    if(e.cancelable) e.preventDefault();
+  }
+
+  function handleEnd() {
+    isDragging = false;
+    canvas.style.cursor = 'crosshair';
+  }
+
+  canvas.addEventListener('mousedown', handleStart);
+  window.addEventListener('mousemove', handleMove);
+  window.addEventListener('mouseup', handleEnd);
+  
+  canvas.addEventListener('touchstart', handleStart, {passive: false});
+  window.addEventListener('touchmove', handleMove, {passive: false});
+  window.addEventListener('touchend', handleEnd);
+
+  // --- Rendering Functions ---
+
+  function drawBurner(ctx, x, y) {
+    // Burner base
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(x - 8, y, 16, 20);
+    ctx.fillRect(x - 15, y + 20, 30, 5);
+    
+    // Animate Flame
+    flameParticles.forEach(p => {
+      p.life -= 0.05;
+      p.y -= 0.05;
+      if(p.life <= 0) {
+        p.life = 1;
+        p.y = 1;
+        p.x = Math.random();
+      }
+      
+      const px = (x - 6) + p.x * 12;
+      const py = y - (1 - p.y) * 25;
+      
+      ctx.beginPath();
+      ctx.arc(px, py, 3 * p.life, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(245, 158, 11, ${p.life})`; // Amber/Orange flame
+      ctx.fill();
+    });
+    
+    // Inner hot blue flame
+    ctx.beginPath();
+    ctx.moveTo(x - 4, y);
+    ctx.lineTo(x, y - 12);
+    ctx.lineTo(x + 4, y);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+    ctx.fill();
+  }
+
+  function render() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    
+    // Clear
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid lines (subtle)
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for(let i=0; i<w; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,h); ctx.stroke(); }
+    for(let i=0; i<h; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(w,i); ctx.stroke(); }
+
+    const chamberW = w * 0.15;
+    const chamberX = w * 0.10;
+    const chamberY = h * 0.3;
+    const chamberH = h * 0.4;
+
+    // Heat Source (Burner)
+    drawBurner(ctx, chamberX + chamberW/2, chamberY + chamberH + 5);
+
+    // Steam Chamber Box
+    ctx.fillStyle = 'rgba(220, 38, 38, 0.2)'; // semi-transparent red
+    ctx.fillRect(chamberX, chamberY, chamberW, chamberH);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(chamberX, chamberY, chamberW, chamberH);
+    
+    // Steam particles inside chamber
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    steamParticles.forEach(p => {
+      p.y -= p.speed;
+      if (p.y < 0) { p.y = 1; p.x = Math.random(); }
+      ctx.beginPath();
+      ctx.arc(chamberX + p.x * chamberW, chamberY + p.y * chamberH, 2.5, 0, Math.PI*2);
+      ctx.fill();
+    });
+    ctx.fillStyle = '#f87171';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('STEAM', chamberX + chamberW/2, chamberY + chamberH/2);
+
+    // Experimental Rod
+    const rodX = chamberX + chamberW;
+    const rodW = w * 0.50;
+    const rodY = chamberY + chamberH*0.2;
+    const rodH = 28;
+
+    // Heat Gradient on Rod
+    const grad = ctx.createLinearGradient(rodX, 0, rodX + rodW, 0);
+    grad.addColorStop(0, '#ef4444');  // Red hot
+    grad.addColorStop(0.5, '#f59e0b'); // Warm
+    grad.addColorStop(1, '#38bdf8');   // Cold blue
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(rodX, rodY, rodW, rodH);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(rodX, rodY, rodW, rodH);
+    
+    // Insulation Pattern (Hatching on rod edges)
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    for(let i=0; i<rodW; i+=10) {
+      ctx.beginPath(); ctx.moveTo(rodX+i, rodY); ctx.lineTo(rodX+i+5, rodY+rodH); ctx.stroke();
+    }
+
+    // Cooling Coil Box
+    const coilX = rodX + rodW - w*0.12;
+    const coilW = w*0.12;
+    ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+    ctx.fillRect(coilX, rodY - 10, coilW, rodH + 20);
+    ctx.strokeStyle = '#0ea5e9';
+    ctx.strokeRect(coilX, rodY - 10, coilW, rodH + 20);
+
+    // Coiled pipe animation
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    for(let i=0; i<4; i++) {
+      ctx.arc(coilX + 15 + i*20, rodY + rodH/2, 14, 0, Math.PI*2);
+    }
+    ctx.stroke();
+
+    // Flowing Water dots
+    ctx.fillStyle = '#bae6fd';
+    waterParticles.forEach(p => {
+      p.progress += 0.003 * flowRateSetting;
+      if (p.progress > 1) p.progress = 0;
+      
+      let currentX = coilX + p.progress * coilW;
+      let currentY = rodY + rodH/2 + Math.sin(p.progress * Math.PI * 6) * 14;
+      
+      ctx.beginPath();
+      ctx.arc(currentX, currentY, 3, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    // Draw Thermometers
+    // T1 (Fixed)
+    drawThermometer(ctx, rodX + rodW * t1_x_percent, rodY, 'θ₁', T1, false);
+    
+    // T2 (Draggable)
+    drawThermometer(ctx, rodX + rodW * t2_x_percent, rodY, 'θ₂', T2, true);
+    
+    // T3 & T4 (Water IN / OUT)
+    drawThermometer(ctx, coilX + 15, rodY + rodH + 10, 'θ₃', T3, false, true); // inverted
+    drawThermometer(ctx, coilX + coilW - 15, rodY + rodH + 10, 'θ₄', T4, false, true);
+
+    requestAnimationFrame(render);
+  }
+
+  function drawThermometer(ctx, x, rodEdgeY, label, temp, isDraggable, inverted=false) {
+    const stemH = 45;
+    const bulbR = 8;
+    const yBulb = inverted ? rodEdgeY : rodEdgeY;
+    const yTop = inverted ? rodEdgeY + stemH : rodEdgeY - stemH;
+
+    // Highlight area if draggable
+    if(isDraggable) {
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+      ctx.fillRect(x - 25, yTop - 25, 50, stemH + 30);
+      
+      // Cursor arrows
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('◀ DRAG ▶', x, yTop - 15);
+    }
+
+    // Glass Tube
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(x - 4, inverted ? yBulb : yTop, 8, stemH);
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - 4, inverted ? yBulb : yTop, 8, stemH);
+
+    // Red Mercury Level
+    const fillRatio = (temp - 20) / 80; // Assuming 20-100 range for visuals
+    const fillH = Math.max(0, Math.min(1, fillRatio)) * (stemH - 10);
+    ctx.fillStyle = '#ef4444';
+    if(inverted) {
+      ctx.fillRect(x - 2, yBulb + 5, 4, fillH);
+    } else {
+      ctx.fillRect(x - 2, yBulb - 5 - fillH, 4, fillH);
+    }
+
+    // Bulb
+    ctx.beginPath();
+    ctx.arc(x, yBulb, bulbR, 0, Math.PI*2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(label, x + 18, inverted ? yTop + 10 : yTop - 5);
+  }
+
+  // --- Chart Drawing ---
+  function drawChart() {
+    const rect = chartCanvas.parentElement.getBoundingClientRect();
+    if(rect.width === 0) return; // Hidden
+    
+    const w = rect.width;
+    const h = rect.height;
+    
+    chartCtx.clearRect(0, 0, w, h);
+
+    const padL = 40, padB = 25, padT = 15, padR = 15;
+    const graphW = w - padL - padR;
+    const graphH = h - padT - padB;
+
+    // Grid
+    chartCtx.strokeStyle = '#e2e8f0';
+    chartCtx.lineWidth = 1;
+    for(let i=0; i<=5; i++) {
+      let y = padT + (i/5) * graphH;
+      chartCtx.beginPath(); chartCtx.moveTo(padL, y); chartCtx.lineTo(w-padR, y); chartCtx.stroke();
+      
+      let x = padL + (i/5) * graphW;
+      chartCtx.beginPath(); chartCtx.moveTo(x, padT); chartCtx.lineTo(x, h-padB); chartCtx.stroke();
+    }
+
+    // Axes
+    chartCtx.strokeStyle = '#475569';
+    chartCtx.lineWidth = 2;
+    chartCtx.beginPath();
+    chartCtx.moveTo(padL, padT); chartCtx.lineTo(padL, h - padB); // Y axis
+    chartCtx.lineTo(w - padR, h - padB); // X axis
+    chartCtx.stroke();
+    
+    // Labels
+    chartCtx.fillStyle = '#64748b';
+    chartCtx.font = '10px sans-serif';
+    chartCtx.textAlign = 'right';
+    chartCtx.fillText("100°C", padL - 5, padT + 5);
+    chartCtx.fillText("20°C", padL - 5, h - padB);
+    
+    chartCtx.textAlign = 'center';
+    chartCtx.fillText("Thermometer Distance (cm)", padL + graphW/2, h - 5);
+
+    // Plot Line (T1 to T2)
+    const mapY = (temp) => h - padB - ((temp - 20) / 80) * graphH;
+    
+    // Fixed T1 is at arbitrary 10cm mark for visual spacing, T2 is T1 + d_cm
+    const maxDistForScale = 80; // Max possible cm range visual
+    const x1 = padL + (10 / maxDistForScale) * graphW;
+    const y1 = mapY(T1);
+    const x2 = padL + ((10 + d_cm) / maxDistForScale) * graphW;
+    const y2 = mapY(T2);
+
+    chartCtx.strokeStyle = '#ef4444';
+    chartCtx.lineWidth = 3;
+    chartCtx.beginPath();
+    chartCtx.moveTo(x1, y1);
+    chartCtx.lineTo(x2, y2);
+    chartCtx.stroke();
+
+    // Data Points
+    chartCtx.fillStyle = '#1e3a8a';
+    chartCtx.beginPath(); chartCtx.arc(x1, y1, 5, 0, Math.PI*2); chartCtx.fill();
+    chartCtx.beginPath(); chartCtx.arc(x2, y2, 5, 0, Math.PI*2); chartCtx.fill();
+
+    // Point Labels
+    chartCtx.fillStyle = '#0f172a';
+    chartCtx.font = 'bold 11px sans-serif';
+    chartCtx.fillText(`θ₁`, x1, y1 - 10);
+    chartCtx.fillText(`θ₂`, x2, y2 - 10);
+  }
+
+  // --- Water Collection Simulator ---
+  let collectionTimer;
+  function startCollection() {
+    const btn = document.getElementById('startBtn');
+    const beakerFill = document.getElementById('beakerFill');
+    const timerDisplay = document.getElementById('timerDisplay');
+    const massDisplay = document.getElementById('waterMass');
+    
+    btn.disabled = true;
+    btn.innerHTML = "⏳ Collecting Water...";
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+    
+    massDisplay.innerText = "---";
+    massDisplay.classList.remove('text-blue-600');
+    massDisplay.classList.add('text-slate-400');
+    
+    let simulatedSeconds = 0;
+    beakerFill.style.height = '0%';
+    
+    // Fast forward simulation: 100ms real = 5s simulated
+    collectionTimer = setInterval(() => {
+      simulatedSeconds += 5; 
+      
+      let mins = Math.floor(simulatedSeconds / 60);
+      let secs = simulatedSeconds % 60;
+      timerDisplay.innerText = `0${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      
+      beakerFill.style.height = `${(simulatedSeconds / 300) * 85}%`;
+
+      if(simulatedSeconds >= 300) {
+        clearInterval(collectionTimer);
+        btn.disabled = false;
+        btn.innerHTML = "↺ Reset & Collect Again";
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        
+        const finalMass = (0.06 * flowRateSetting).toFixed(3);
+        massDisplay.innerText = `${finalMass}`;
+        massDisplay.classList.remove('text-slate-400');
+        massDisplay.classList.add('text-blue-600');
+      }
+    }, 70); 
+  }
+
+  // --- Verification Logic ---
+  function checkCalculation() {
+    const val = parseFloat(document.getElementById('studentK').value);
+    const feedback = document.getElementById('resultFeedback');
+    feedback.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-green-100', 'text-green-800');
+
+    if(isNaN(val)) {
+      feedback.innerHTML = '⚠️ Please enter a valid number.';
+      feedback.classList.add('bg-red-100', 'text-red-800', 'block');
+      return;
+    }
+
+    const diff = Math.abs(val - correctK);
+    // Allow generous 5% error margin for rounding differences
+    if(diff <= (correctK * 0.05)) {
+      feedback.innerHTML = `🎉 <strong>Excellent!</strong> Your calculation (${val}) matches the simulated physical model (Expected: ~${correctK.toFixed(4)}).`;
+      feedback.classList.add('bg-green-100', 'text-green-800', 'block');
+    } else {
+      feedback.innerHTML = `❌ <strong>Incorrect.</strong> Hint: Double-check your Area (m²) and ensure you used the mass from the simulation timer. Expected around ~${correctK.toFixed(4)}`;
+      feedback.classList.add('bg-red-100', 'text-red-800', 'block');
+    }
+  }
+
+  // Initialize
+  setTimeout(() => {
+    resizeAll();
+    calcGeometry();
+    requestAnimationFrame(render);
+  }, 100);
+
+</script>
+
+</body>
+</html>
